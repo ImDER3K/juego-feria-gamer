@@ -1,12 +1,6 @@
 
 import processing.event.*;
 
-// ==================================================
-// SUPERVIVENCIA DIGITAL
-// Processing - Java Mode
-// ==================================================
-
-// ---------------- CONFIGURACION ----------------
 
 final int ANCHO = 1080;
 final int ALTO = 600;
@@ -230,6 +224,36 @@ boolean telefonoAbierto = false;
 boolean hayNotificacion = false;
 String mensajeNotificacion = "Sin notificaciones.";
 
+///imagenes de los cuatro tipos de aviso o notis.
+
+PImage[] spritesAvisos = new  PImage[4];
+String[] nombreAvisos = {
+  "wajap","Itagram", "Auraspace", "Cámara"
+};
+
+// las apps dentro de el cel
+
+PImage[] iconosApps = new PImage[6];
+
+//vamos a guardar el tipo de cada noti pendiente osea si 0 significa wajap y 1 itagram
+
+int [] bandeja = new int[50];
+int pendientes = 0;
+
+//tiempo en salir las notis 
+
+int minimoNoti = 6000;
+int maximoNoti = 10000;
+int intervaloNoti = 6000;
+int esperaNoti = 0;
+
+//tiempo notis en el medio 
+int relojNoti = 0;
+int finAvisoCentral = 0;
+int tipoAvisoCetral = 0;
+
+
+
 // Caja del celular cerrado en pantalla.
 final float TELEFONO_X = 20;
 final float TELEFONO_MARGEN = 20;
@@ -260,9 +284,7 @@ String nombre = "";
 // Aviso de error mostrado en pantalla durante el registro
 String mensajeRegistro = "";
 
-// ==================================================
-// SETUP
-// ==================================================
+///////////////
 
 void setup() {
 
@@ -293,7 +315,7 @@ void cargarRecursos() {
 
   fondoMenu = loadImage("menu/fondo_menu.jpg");
   mapa = loadImage("mapas/mapa.png");
-  colisiones = loadImage("mapas/colisiones.png");
+  colisiones = loadImage("mapas/colisiones1.png");
 
   if (fondoMenu == null) {
     println("ERROR: No se encontro fondo_menu.jpg");
@@ -401,7 +423,40 @@ void cargarRecursos() {
     errorRecursos = true;
     return;
   }
+ 
+  spritesAvisos[0] = loadImage("interfaz/wajapnoti.png");
+  spritesAvisos[1] = loadImage("interfaz/itagramnoti");
+  spritesAvisos[2] = loadImage("interfaz/auraspacenoti.png");
+  spritesAvisos[3] = loadImage("interfaz/camaranoti");
+  
+  iconosApps[0] = loadImage("interfaz/wajap.png");
+  iconosApps[1] = loadImage("interfaz/itagram");
+  iconosApps[2] = loadImage("interfaz/auraspace.png");
+  iconosApps[3] = loadImage("interfaz/camara.png");
+  iconosApps[4] = loadImage("interfaz/noti.png");
+  iconosApps[5] = loadImage("interfaz/tito.png");
+  
 
+// aqui muestra el mensaje de error si no encuentra la imagen antes de  iniciar 
+
+for (int i = 0; i < spritesAvisos.length; i++) {
+  if (spritesAvisos[i] == null) {
+  detalleError = "Falta un sprite de aviso de " + nombreAvisos[i];
+  errorRecursos = true;
+  return;
+  }
+
+}
+
+for (int i = 0; i < spritesAvisos.length; i++) {
+  if (iconosApps[i] == null) {
+  detalleError = "Falta un sprite de aviso de los iconos en el cel" ;
+  errorRecursos = true;
+  return;
+  }
+
+}
+   
   recursosListos = true;
 }
 
@@ -447,9 +502,6 @@ void configurarNiebla() {
   }
 }
 
-// ==================================================
-// INICIAR JUGADOR
-// ==================================================
 
 boolean iniciarJugador() {
 
@@ -868,6 +920,7 @@ void dibujarExploracion() {
   }
 
   dibujarMensajeLogro();
+  dibujarAvisoCentral();
 }
 
 // ==================================================
@@ -1468,7 +1521,9 @@ void dibujarTelefono() {
     return;
   }
 
-  PImage img = hayNotificacion ? imgCelularNoti : imgCelularOff;
+  PImage img = (pendientes > 0 || hayNotificacion)
+    ? imgCelularNoti
+    : imgCelularOff;
 
   if (img == null) return;
 
@@ -1479,56 +1534,81 @@ void dibujarTelefono() {
 }
 
 void dibujarTelefonoAbierto() {
-
   if (imgCelular == null) return;
 
-  // Fondo oscuro
   noStroke();
   fill(0, 170);
   rect(0, 0, width, height);
 
   float alto = height - 70;
-  float ancho = alto * (imgCelular.width / (float)imgCelular.height);
+  float ancho = alto * imgCelular.width / imgCelular.height;
   float x = width/2 - ancho/2 - 130;
   float y = 35;
 
   imageMode(CORNER);
   image(imgCelular, x, y, ancho, alto);
 
-  // Panel de informacion a la derecha del celular
-  float panelX = x + ancho + 25;
-  float panelY = 80;
-  float panelW = width - panelX - 30;
-  float panelH = height - 160;
+  // Seis apps distribuidas en dos columnas y tres filas.
+  for (int i = 0; i < iconosApps.length; i++) {
+    int columna = i % 2;
+    int fila = i / 2;
 
-  noStroke();
-  fill(10, 15, 25, 230);
-  rect(panelX, panelY, panelW, panelH, 12);
+    float appX = x + ancho * (0.26 + columna * 0.23);
+    float appY = y + alto * (0.20 + fila * 0.16);
+
+    dibujarImagenEnCaja(
+      iconosApps[i],
+      appX,
+      appY,
+      ancho * 0.20,
+      alto * 0.14
+    );
+  }
+
+  float panelX = x + ancho + 25;
+  float panelW = width - panelX - 30;
+
+  fill(10, 15, 25, 235);
+  rect(panelX, 80, panelW, 440, 12);
 
   fill(255, 220, 80);
   textAlign(CENTER, CENTER);
-  textSize(20);
-  text("CELULAR", panelX + panelW/2, panelY + 30);
+  textSize(22);
+  text("NOTIFICACIONES", panelX + panelW/2, 115);
 
   fill(255);
+  textSize(17);
+  text("Pendientes: " + pendientes, panelX + panelW/2, 155);
+
+  if (pendientes > 0) {
+    int tipo = bandeja[0];
+
+    dibujarImagenEnCaja(
+      spritesAvisos[tipo],
+      panelX + 20,
+      180,
+      panelW - 40,
+      165
+    );
+
+    dibujarBoton("RESPONDER", panelX + 20, 365, panelW - 40, 42);
+    dibujarBoton("ELIMINAR", panelX + 20, 417, panelW - 40, 42);
+  } else {
+    text("Bandeja vacía", panelX + panelW/2, 260);
+  }
+
+  fill(255);
+  textSize(15);
+  text(
+    "Estrés: " + int(estres) + "%",
+    panelX + panelW/2,
+    485
+  );
+
+  fill(190);
   textSize(13);
-  text("Notificación", panelX + panelW/2, panelY + 65);
-
-  textSize(14);
-  text(mensajeNotificacion, panelX + panelW/2, panelY + 95);
-
-  textSize(14);
-  text("Estrés: " + nivelEstresTexto() + " (" + int(estres) + "%)",
-       panelX + panelW/2, panelY + 140);
-
-  text("Acciones: " + accionesTotales, panelX + panelW/2, panelY + 165);
-  text("Día: " + diaActual + " / " + DIAS_TOTALES, panelX + panelW/2, panelY + 190);
-
-  fill(180);
-  textSize(12);
-  text("Clic o ESC para cerrar", panelX + panelW/2, panelY + panelH - 25);
+  text("C o ESC para cerrar", panelX + panelW/2, 505);
 }
-
 // Dibuja una imagen centrada dentro de una caja sin deformarla.
 void dibujarImagenEnCaja(PImage img, float x, float y, float cajaW, float cajaH) {
 
@@ -1642,6 +1722,7 @@ void aplicarDecision(int opcion) {
 
   if (!decisionActiva) return;
   if (opcion < 0 || opcion >= opcionesDecision.length) return;
+  configuracionnotis(opcion);
 
   estresTotal += valoresEstres[opcion];
   estresTotal = constrain(estresTotal, 0, 100);
@@ -1809,7 +1890,23 @@ void mousePressed() {
   if (!recursosListos) return;
 
   actualizarTiempo();
+// Clics del panel de notificaciones.
+if (estadoActual == EXPLORACION && telefonoAbierto) {
+  float alto = height - 70;
+  float ancho = alto * imgCelular.width / imgCelular.height;
+  float x = width/2 - ancho/2 - 130;
 
+  float panelX = x + ancho + 25;
+  float panelW = width - panelX - 30;
+
+  if (sobreBoton(panelX + 20, 365, panelW - 40, 42)) {
+    atenderNotis(true);
+  } else if (sobreBoton(panelX + 20, 417, panelW - 40, 42)) {
+    atenderNotis(false);
+  }
+
+  return;
+}
   if (estadoActual == MENU) {
 
     // Si el popup de controles está abierto, cerrarlo con clic
@@ -2123,6 +2220,13 @@ String horaFinDelDia() {
 // ==================================================
 
 void iniciarPartida() {
+  pendientes = 0;
+  esperaNoti = 0;
+  relojNoti = 0;
+  finAvisoCentral = 0;
+  tipoAvisoCetral = 0;
+
+  configuracionnotis(1);
   viendoDesenlace = false;
   imagenDesenlace = null;
 
@@ -2230,7 +2334,7 @@ void avanzarTiempo(int milisegundos) {
 
     return;
   }
-
+  
   tiempoActivo += milisegundos;
 
   if (estadoActual == INTRO) {
@@ -2258,7 +2362,8 @@ void avanzarTiempo(int milisegundos) {
     if (decisionActiva || telefonoAbierto) {
       return;
     }
-
+    
+    actualizarNotis(milisegundos);
     minutosJornada += milisegundos / 1000.0 * MINUTOS_POR_SEGUNDO;
 
     horasRestantes = max(
@@ -2527,21 +2632,33 @@ void dibujarInformacionMenu() {
     text(
       "Supervivencia Digital",
       width/2,
-      195
+      180
     );
 
     textSize(18);
 
     text(
-      "Proyecto universitario desarrollado en Processing, Java Mode.",
+      "Desarrollado en Processing.",
       width/2,
-      245
+      230
     );
-
-    text(
-      "Ilustraciones de la introducción generadas con ImageGen.",
+     text("INTEGRANTES DE EL GRUPO", width/2, 300);
+      textSize(20);
+      
+     text(
+      "Derek Pérez",
       width/2,
-      300
+      350
+    );
+     text(
+      "Samuel Lombana",
+      width/2,
+      400
+    );
+     text(
+      "Yull Escamilla",
+      width/2,
+      450
     );
   }
 
@@ -2671,3 +2788,110 @@ void comenzarJuegoTrasRegistro() {
 
   estadoActual = INTRO;
 }
+
+//frecuencia de notis segun la decision
+
+void configuracionnotis(int opcion) {
+switch (opcion) {
+  
+  case 0: //usar red social
+    minimoNoti = 3000;
+    maximoNoti = 6000; 
+    break;
+    
+  case 1: //estudiar
+   minimoNoti = 6000;
+   maximoNoti = 10000; 
+   break;
+  
+  case 2: //dormir
+    minimoNoti = 10000;
+    maximoNoti = 16000; 
+    break;
+}
+
+esperaNoti = 0;
+intervaloNoti = int(random(minimoNoti, maximoNoti));
+
+}
+
+//actualizar los segundos desde el ultimo act
+
+  void actualizarNotis(int milisegundos) {
+    if(decisionActiva || telefonoAbierto) return;
+  
+    relojNoti += milisegundos;
+    esperaNoti += milisegundos;
+
+//cuando tenga mas de 2 notis el estres empieza a aumentar cada vez mas
+    if(pendientes  >= 3) {
+    float aumento = (pendientes - 2) * 0.20;
+    estresTotal += aumento * milisegundos / 1000.0;
+    estresTotal = constrain(estresTotal, 0, 100);
+    estres = estresTotal;
+    } 
+    
+    if(esperaNoti >= intervaloNoti) {
+    agregarNoti();
+    
+    esperaNoti = 0;
+    intervaloNoti = int(random(minimoNoti, maximoNoti));
+  
+}
+
+}
+
+void agregarNoti() {
+  //maximo de notis 30
+ if(pendientes >= bandeja.length) return;
+ int tipo = int(random(spritesAvisos.length));
+ 
+ bandeja[pendientes] = tipo;
+ pendientes++;
+ 
+ tipoAvisoCetral = tipo;
+ finAvisoCentral = relojNoti + 3000;
+   
+}
+
+///ahora dibujar eso en la pantalla 
+
+void dibujarAvisoCentral(){
+  if(estadoActual != EXPLORACION) return;
+  if(decisionActiva || telefonoAbierto) return;
+  if(relojNoti >= finAvisoCentral) return;
+  
+ dibujarImagenEnCaja(
+  spritesAvisos[tipoAvisoCetral],
+  //posicion en oantalla
+  width/2 - 200,
+  height/2 - 115,
+  400, //x
+  230 //y
+ );
+  
+}
+
+//atebder notis
+
+void atenderNotis(boolean responder) {
+if (pendientes == 0) return;
+
+int i = 0;
+while (i < pendientes - 1) {
+bandeja [i] = bandeja [i + 1];
+i++;
+}
+pendientes--;
+if (responder) {
+ estresTotal -= 4;
+}else {
+  estresTotal -= 2;
+}
+estresTotal = constrain(estresTotal, 0, 100);
+estres = estresTotal;
+finAvisoCentral = relojNoti; //esto quita el cartel cuando respondemos
+}
+
+
+  
